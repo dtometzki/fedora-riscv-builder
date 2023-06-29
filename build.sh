@@ -216,7 +216,7 @@ comp_img() {
 }
 
 build_dir=$(pwd)
-boot_mnt=${build_dir}/boot_tmp
+boot_mnt=${build_dir}/root_tmp/boot
 root_mnt=${build_dir}/root_tmp
 rootfs_dir=${build_dir}/rootfs
 

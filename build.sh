@@ -154,7 +154,7 @@ mk_img() {
     loopX=${device##*\/}
     partprobe ${device}
 
-    sdrootp=/dev/mapper/${loopX}p2
+    sdrootp=/dev/mapper/${loopX}p1
     
     mkfs.ext4 -L fedora-root ${sdrootp}
     mkdir -p ${root_mnt} ${boot_mnt}

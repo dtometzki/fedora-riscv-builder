@@ -72,19 +72,16 @@ get_riscv_system() {
     chroot ${rootfs_dir} dnf update -y
     chroot ${rootfs_dir} dnf install alsa-utils haveged wpa_supplicant vim net-tools iproute iputils NetworkManager bluez fedora-release-server -y
     chroot ${rootfs_dir} dnf install wget openssh-server openssh-clients passwd hostname parted realtek-firmware chkconfig e2fsprogs dracut -y
-    chroot ${rootfs_dir} dnf install NetworkManager-wifi NetworkManager-wwan -y
-    echo fedora-riscv > ${rootfs_dir}/etc/hostname
-    cp $build_dir/config/extend-root.sh ${rootfs_dir}/etc/rc.d/init.d/extend-root.sh
+    chroot ${rootfs_dir} dnf install NetworkManager-wifi NetworkManager-wwan vi -y
+    echo licheepi > ${rootfs_dir}/etc/hostname
     cp $build_dir/config/lpi4a-sysfan.sh ${rootfs_dir}/opt/lpi4a-sysfan.sh
     cp $build_dir/config/lpi4a-sysfan.service ${rootfs_dir}/usr/lib/systemd/system/lpi4a-sysfan.service
     chmod 755 ${rootfs_dir}/opt/lpi4a-sysfan.sh
     chmod 755 ${rootfs_dir}/usr/lib/systemd/system/lpi4a-sysfan.service
-    chmod +x ${rootfs_dir}/etc/rc.d/init.d/extend-root.sh
+    
 
     cat << EOF | chroot ${rootfs_dir}  /bin/bash
     echo 'fedora' | passwd --stdin root
-    chkconfig --add extend-root.sh
-    chkconfig extend-root.sh on
     systemctl --no-reload enable lpi4a-sysfan.service
     dracut --no-kernel /boot/initrd.img
 EOF
@@ -144,13 +141,12 @@ mk_img() {
     LOSETUP_D_IMG
     UMOUNT_ALL
     size=`du -sh --block-size=1MiB ${build_dir}/rootfs | cut -f 1 | xargs`
-    size=$(($size+720))
+    size=$(($size+1440))
     losetup -D
     img_file=${build_dir}/sd.img
     dd if=/dev/zero of=${img_file} bs=1MiB count=$size status=progress && sync
 
-    parted ${img_file} mklabel gpt mkpart primary fat32 32768s 524287s
-    parted ${img_file} mkpart primary ext4 524288s 100%
+    parted ${img_file} mklabel gpt mkpart primary ext4 32768ss 100%
 
     device=`losetup -f --show -P ${img_file}`
     trap 'LOSETUP_D_IMG' EXIT
@@ -158,13 +154,10 @@ mk_img() {
     loopX=${device##*\/}
     partprobe ${device}
 
-    sdbootp=/dev/mapper/${loopX}p1
     sdrootp=/dev/mapper/${loopX}p2
     
-    mkfs.vfat -n fedora-boot ${sdbootp}
     mkfs.ext4 -L fedora-root ${sdrootp}
     mkdir -p ${root_mnt} ${boot_mnt}
-    mount ${sdbootp} ${boot_mnt}
     mount ${sdrootp} ${root_mnt}
 
     if [ -d $boot_mnt/extlinux ]; then
@@ -191,7 +184,7 @@ mk_img() {
     cp $build_dir/thead-kernel/arch/riscv/boot/dts/thead/*lpi4a*dtb $boot_mnt
 
     echo "LABEL=fedora-root  / ext4    defaults,noatime 0 0" > ${build_dir}/rootfs/etc/fstab
-    echo "LABEL=fedora-boot  /boot vfat    defaults,noatime 0 0" >> ${build_dir}/rootfs/etc/fstab
+    echo "LABEL=fedora-boot  /boot ext4    defaults,noatime 0 0" >> ${build_dir}/rootfs/etc/fstab
 
     cp -rfp ${build_dir}/rootfs/boot/* $boot_mnt
     rm -rf ${build_dir}/rootfs/boot/*
@@ -201,7 +194,6 @@ mk_img() {
     sleep 10
 
     umount $sdrootp
-    umount $sdbootp
 
     LOSETUP_D_IMG
     UMOUNT_ALL

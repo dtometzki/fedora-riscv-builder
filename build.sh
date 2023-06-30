@@ -219,6 +219,17 @@ mk_img() {
     kpartx -d ${img_file}
 }
 
+comp_img() {
+    if [ ! -f $build_dir/sd.img ]; then
+        echo "sd flash file build failed!"
+        exit 2
+    fi
+
+    xz -v boot.img
+    xz -v rootfs.img
+
+}
+
 
 build_dir=$(pwd)
 boot_mnt=${build_dir}/boot_tmp

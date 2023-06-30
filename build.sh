@@ -146,7 +146,8 @@ mk_img() {
     img_file=${build_dir}/sd.img
     dd if=/dev/zero of=${img_file} bs=1MiB count=$size status=progress && sync
 
-    parted ${img_file} mklabel gpt mkpart primary ext4 32768ss 100%
+    parted ${img_file} mklabel gpt mkpart primary ext4 32768s 524287s
+    parted ${img_file} mkpart primary ext4 524288s 100%
 
     device=`losetup -f --show -P ${img_file}`
     trap 'LOSETUP_D_IMG' EXIT
@@ -154,11 +155,14 @@ mk_img() {
     loopX=${device##*\/}
     partprobe ${device}
 
-    sdrootp=/dev/mapper/${loopX}p1
+    sdbootp=/dev/mapper/${loopX}p1
+    sdrootp=/dev/mapper/${loopX}p2
     
+    mkfs.ext4 -L fedora-boot ${sdbootp}
     mkfs.ext4 -L fedora-root ${sdrootp}
     mkdir -p ${root_mnt} ${boot_mnt}
-    mount ${sdrootp} ${root_mnt}
+    mount -t ext4 ${sdbootp} ${boot_mnt}
+    mount -t ext4 ${sdrootp} ${root_mnt}
 
     if [ -d $boot_mnt/extlinux ]; then
         rm -rf $boot_mnt/extlinux
@@ -194,6 +198,19 @@ mk_img() {
     sleep 10
 
     umount $sdrootp
+    umount $sdbootp
+
+    dd if=$sdbootp of=boot.img status=progress
+    dd if=$sdrootp of=rootfs.img status=progress
+    sync
+
+    mount -t ext4 boot.img ${boot_mnt}
+    mount -t ext4 rootfs.img ${root_mnt}
+
+      
+    echo "/dev/mmcblk0p3  / ext4    defaults,noatime 0 0" > ${root_mnt}/etc/fstab
+    echo "/dev/mmcblk0p2  /boot ext4    defaults,noatime 0 0" >> ${root_mnt}/etc/fstab
+    sync
 
     LOSETUP_D_IMG
     UMOUNT_ALL
@@ -202,21 +219,9 @@ mk_img() {
     kpartx -d ${img_file}
 }
 
-comp_img() {
-    if [ ! -f $build_dir/sd.img ]; then
-        echo "sd flash file build failed!"
-        exit 2
-    fi
-
-    xz -v sd.img
-    mv sd.img.xz Fedora-38-Minimal-LicheePi-4A-riscv64-sd.img.xz
-
-    sha256sum Fedora-38-Minimal-LicheePi-4A-riscv64-sd.img.xz >> Fedora-38-Minimal-LicheePi-4A-riscv64-sd.img.xz.sha256
-
-}
 
 build_dir=$(pwd)
-boot_mnt=${build_dir}/root_tmp/boot
+boot_mnt=${build_dir}/boot_tmp
 root_mnt=${build_dir}/root_tmp
 rootfs_dir=${build_dir}/rootfs
 
@@ -231,4 +236,4 @@ build_kernel
 build_u-boot
 build_opensbi
 mk_img
-comp_img
+

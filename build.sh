@@ -116,10 +116,10 @@ build_kernel() {
 
 build_u-boot() {
     if [ ! -d $build_dir/thead-u-boot ]; then
-        git clone --depth=1 https://github.com/chainsx/thead-u-boot.git -b dev
+        git clone --depth=1 https://github.com/revyos/thead-u-boot -b lpi4a
     fi
     cd thead-u-boot
-    make ARCH=riscv CROSS_COMPILE=${build_dir}/riscv64-gcc/bin/riscv64-unknown-linux-gnu- light_lpi4a_defconfig
+    make ARCH=riscv CROSS_COMPILE=${build_dir}/riscv64-gcc/bin/riscv64-unknown-linux-gnu- light_lpi4a_16g_defconfig
     make ARCH=riscv CROSS_COMPILE=${build_dir}/riscv64-gcc/bin/riscv64-unknown-linux-gnu- -j$(nproc)
     cp u-boot-with-spl.bin $build_dir/firmware
     cd $build_dir
